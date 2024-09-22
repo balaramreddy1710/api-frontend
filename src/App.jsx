@@ -1,11 +1,15 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import axios from "axios";
+import "./App.css";
 
 function App() {
   const [jsonInput, setJsonInput] = useState("");
   const [responseData, setResponseData] = useState(null);
   const [error, setError] = useState("");
   const [selectedOptions, setSelectedOptions] = useState([]);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  const dropdownRef = useRef(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -13,7 +17,7 @@ function App() {
       const parsedInput = JSON.parse(jsonInput);
 
       const response = await axios.post(
-        "http://localhost:5000/bfhl",
+        "https://api-backend-zeta-three.vercel.app/bfhl",
         parsedInput
       );
       setResponseData(response.data);
@@ -24,34 +28,54 @@ function App() {
     }
   };
 
-  const handleSelectionChange = (e) => {
-    const options = Array.from(
-      e.target.selectedOptions,
-      (option) => option.value
-    );
-    setSelectedOptions(options);
+  const toggleDropdown = () => {
+    setIsDropdownOpen(!isDropdownOpen);
   };
+
+  const handleOptionChange = (option) => {
+    if (selectedOptions.includes(option)) {
+      setSelectedOptions(selectedOptions.filter((item) => item !== option));
+    } else {
+      setSelectedOptions([...selectedOptions, option]);
+    }
+  };
+
+  const handleClickOutside = (event) => {
+    if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+      setIsDropdownOpen(false);
+    }
+  };
+
+  useEffect(() => {
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      // Clean up the event listener
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   const renderResponse = () => {
     if (!responseData) return null;
     const { numbers, alphabets, highest_lowercase_alphabet } = responseData;
 
     return (
-      <div>
+      <div className="response-container">
         {selectedOptions.includes("Numbers") && (
-          <div>
-            <strong>Numbers:</strong> {JSON.stringify(numbers)}
+          <div className="response-section">
+            <h3>Numbers:</h3>
+            <pre>{numbers.join(", ")}</pre>
           </div>
         )}
         {selectedOptions.includes("Alphabets") && (
-          <div>
-            <strong>Alphabets:</strong> {JSON.stringify(alphabets)}
+          <div className="response-section">
+            <h3>Alphabets:</h3>
+            <pre>{alphabets.join(", ")}</pre>
           </div>
         )}
         {selectedOptions.includes("Highest lowercase alphabet") && (
-          <div>
-            <strong>Highest lowercase alphabet:</strong>{" "}
-            {JSON.stringify(highest_lowercase_alphabet)}
+          <div className="response-section">
+            <h3>Highest Lowercase Alphabet:</h3>
+            <pre>{highest_lowercase_alphabet.join(", ")}</pre>
           </div>
         )}
       </div>
@@ -59,35 +83,78 @@ function App() {
   };
 
   return (
-    <div className="App">
-      <form onSubmit={handleSubmit}>
-        <textarea
-          rows="10"
-          cols="50"
-          value={jsonInput}
-          onChange={(e) => setJsonInput(e.target.value)}
-          placeholder="Enter your JSON here"
-        />
-        <br />
-        <button type="submit">Submit</button>
-      </form>
+    <div className="app-container">
+      <main className="main-content">
+        <div className="content-container">
+          <form onSubmit={handleSubmit} className="input-form">
+            <label htmlFor="jsonInput">API Input:</label>
+            <textarea
+              id="jsonInput"
+              rows="10"
+              value={jsonInput}
+              onChange={(e) => setJsonInput(e.target.value)}
+              placeholder='e.g., { "key": "value" }'
+              required
+            />
+            <button type="submit" className="submit-button">
+              Submit
+            </button>
+            {error && <p className="error-message">{error}</p>}
+          </form>
 
-      {error && <p style={{ color: "red" }}>{error}</p>}
+          {responseData && (
+            <div className="results-section">
+              <div className="filter-dropdown" ref={dropdownRef}>
+                <label className="filter-label">Multi Filter:</label>
+                <div className="dropdown-header" onClick={toggleDropdown}>
+                  <div className="selected-options">
+                    {selectedOptions.length > 0
+                      ? selectedOptions.join(", ")
+                      : "Select options"}
+                  </div>
+                  <div
+                    className={`dropdown-arrow ${isDropdownOpen ? "open" : ""}`}
+                  ></div>
+                </div>
+                {isDropdownOpen && (
+                  <div className="dropdown-list">
+                    <label className="dropdown-item">
+                      <input
+                        type="checkbox"
+                        checked={selectedOptions.includes("Numbers")}
+                        onChange={() => handleOptionChange("Numbers")}
+                      />
+                      Numbers
+                    </label>
+                    <label className="dropdown-item">
+                      <input
+                        type="checkbox"
+                        checked={selectedOptions.includes("Alphabets")}
+                        onChange={() => handleOptionChange("Alphabets")}
+                      />
+                      Alphabets
+                    </label>
+                    <label className="dropdown-item">
+                      <input
+                        type="checkbox"
+                        checked={selectedOptions.includes(
+                          "Highest lowercase alphabet"
+                        )}
+                        onChange={() =>
+                          handleOptionChange("Highest lowercase alphabet")
+                        }
+                      />
+                      Highest Lowercase Alphabet
+                    </label>
+                  </div>
+                )}
+              </div>
 
-      {responseData && (
-        <>
-          <label>Filter options:</label>
-          <select multiple onChange={handleSelectionChange}>
-            <option value="Numbers">Numbers</option>
-            <option value="Alphabets">Alphabets</option>
-            <option value="Highest lowercase alphabet">
-              Highest lowercase alphabet
-            </option>
-          </select>
-
-          {renderResponse()}
-        </>
-      )}
+              {renderResponse()}
+            </div>
+          )}
+        </div>
+      </main>
     </div>
   );
 }
